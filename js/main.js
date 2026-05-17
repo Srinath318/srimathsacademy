@@ -260,5 +260,39 @@
 
   toggleOtherClass();
   validateForm();
-  setHeroTheme('results');
+  if (heroBadges.length) setHeroTheme('results');
+
+  function closeFaqItem(item) {
+    if (!item) return;
+    var btn = item.querySelector('.faq__question');
+    var answer = item.querySelector('.faq__answer');
+    item.classList.remove('is-open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (answer) answer.hidden = true;
+  }
+
+  function openFaqItem(item) {
+    if (!item) return;
+    var btn = item.querySelector('.faq__question');
+    var answer = item.querySelector('.faq__answer');
+    item.classList.add('is-open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (answer) answer.hidden = false;
+  }
+
+  document.querySelectorAll('[data-faq-toggle]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var item = btn.closest('.faq__item');
+      if (!item) return;
+      var isOpen = item.classList.contains('is-open');
+      document.querySelectorAll('#faq .faq__item.is-open').forEach(function (openItem) {
+        if (openItem !== item) closeFaqItem(openItem);
+      });
+      if (isOpen) {
+        closeFaqItem(item);
+      } else {
+        openFaqItem(item);
+      }
+    });
+  });
 })();
