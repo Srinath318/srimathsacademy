@@ -2,6 +2,8 @@
   'use strict';
 
   var SNAP_PX = 34;
+  var DRAG_ACTIVATE_PX = 8;
+  var SCROLL_CANCEL_PX = 10;
   var SUCCESS_MS = 2200;
   var SHAKE_MS = 800;
   var FEEDBACK_MS = 1500;
@@ -462,6 +464,21 @@
     return slot.role === chip.kind;
   }
 
+  function activateDrag(state, e) {
+    state.pending = false;
+    try {
+      state.chip.el.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* ignore */
+    }
+    state.chip.el.classList.add('is-dragging');
+    stage.classList.add('is-dragging');
+  }
+
+  function cancelPendingDrag() {
+    dragState = null;
+  }
+
   function onPointerDown(e) {
     if (reducedMotion) return;
     var chip = getChipFromEl(e.currentTarget);
@@ -470,23 +487,43 @@
 
     if (chip.slotId) releaseChip(chip);
 
-    e.currentTarget.setPointerCapture(e.pointerId);
     var rect = e.currentTarget.getBoundingClientRect();
     dragState = {
       chip: chip,
       pointerId: e.pointerId,
       offsetX: e.clientX - rect.left,
       offsetY: e.clientY - rect.top,
+      startX: e.clientX,
+      startY: e.clientY,
+      pending: true,
       moved: false
     };
-
-    e.currentTarget.classList.add('is-dragging');
-    stage.classList.add('is-dragging');
-    e.preventDefault();
   }
 
   function onPointerMove(e) {
     if (!dragState || dragState.pointerId !== e.pointerId) return;
+
+    if (dragState.pending) {
+      var dx = e.clientX - dragState.startX;
+      var dy = e.clientY - dragState.startY;
+      var adx = Math.abs(dx);
+      var ady = Math.abs(dy);
+
+      if (ady > adx && ady > SCROLL_CANCEL_PX) {
+        cancelPendingDrag();
+        return;
+      }
+
+      if (Math.hypot(dx, dy) < DRAG_ACTIVATE_PX || adx < ady) {
+        return;
+      }
+
+      activateDrag(dragState, e);
+    }
+
+    if (dragState.pending) return;
+
+    e.preventDefault();
 
     var chip = dragState.chip;
     var stageRect = stage.getBoundingClientRect();
@@ -628,6 +665,11 @@
 
   function onPointerUp(e) {
     if (!dragState || dragState.pointerId !== e.pointerId) return;
+
+    if (dragState.pending) {
+      dragState = null;
+      return;
+    }
 
     var chip = dragState.chip;
     chip.el.classList.remove('is-dragging');
