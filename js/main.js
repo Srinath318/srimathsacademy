@@ -20,7 +20,6 @@
   var whatsappBtn = document.getElementById('whatsappBtn');
 
   var heroBadges = document.querySelectorAll('.hero__badge[data-hero-theme]');
-  var heroScenes = document.querySelectorAll('.hero-scene[data-hero-scene]');
 
   if (yearEl) {
     yearEl.textContent = new Date().getFullYear();
@@ -87,9 +86,9 @@
       badge.classList.toggle('is-active', active);
       badge.setAttribute('aria-selected', active ? 'true' : 'false');
     });
-    heroScenes.forEach(function (scene) {
-      scene.classList.toggle('is-active', scene.getAttribute('data-hero-scene') === theme);
-    });
+    document.dispatchEvent(
+      new CustomEvent('hero-theme-change', { detail: { theme: theme } })
+    );
   }
 
   heroBadges.forEach(function (badge) {
@@ -143,10 +142,9 @@
 
   function validatePhone() {
     var el = document.getElementById('phoneError');
-    var val = phone ? phone.value.replace(/\D/g, '') : '';
-    if (phone) phone.value = val;
-    if (!/^[6-9]\d{9}$/.test(val)) {
-      showError(phone, el, 'Enter a valid 10-digit Indian mobile number.');
+    var digits = phone ? phone.value.replace(/\D/g, '') : '';
+    if (digits.length < 7 || digits.length > 15) {
+      showError(phone, el, 'Enter a valid mobile number with country code (7–15 digits).');
       return false;
     }
     clearError(phone, el);
