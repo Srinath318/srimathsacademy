@@ -1003,9 +1003,10 @@ main > section.hero > .container.hero__grid {
   }
 
   #why-one-on-one .compare__col {
-    width: min(100%, 22rem);
-    max-width: 22rem;
+    width: min(78%, 22rem);
+    max-width: calc(100vw - 2.5rem);
     margin-inline: auto;
+    box-sizing: border-box;
     padding: clamp(0.5rem, 1.2vh, 0.625rem) clamp(0.65rem, 2vw, 0.75rem);
   }
 
