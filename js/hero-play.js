@@ -1,8 +1,7 @@
 (function () {
   'use strict';
 
-  var DRAG_ACTIVATE_PX = 8;
-  var SCROLL_CANCEL_PX = 10;
+  var DRAG_ACTIVATE_PX = 2;
   var SUCCESS_MS = 2200;
   var SHAKE_MS = 800;
   var FEEDBACK_MS = 1500;
@@ -66,6 +65,9 @@
   var feedbackEl = root.querySelector('[data-hero-play-feedback]');
   var staticEl = root.querySelector('[data-hero-play-static]');
   var toastEl = root.querySelector('[data-hero-play-toast]');
+  var subhintEl = root.querySelector('[data-hero-play-subhint]');
+  var undoBtn = root.querySelector('[data-hero-play-undo]');
+  var clearBtn = root.querySelector('[data-hero-play-clear]');
 
   if (!stage || !poolEl) return;
 
@@ -83,6 +85,8 @@
   var toastIndex = 0;
   var lastTarget = null;
   var dropTargetSlot = null;
+  var moveStack = [];
+  var dragRafId = null;
 
   function getTheme(name) {
     return THEMES[name] || THEMES.results;
@@ -173,6 +177,7 @@
     moveCount = 0;
     setFeedback('');
     clearPanDisplay();
+    moveStack = [];
   }
 
   function clearPanDisplay() {
@@ -314,6 +319,7 @@
     reparentChipToPool(chip);
     chip.el.style.visibility = 'hidden';
     chip.el.setAttribute('aria-hidden', 'true');
+    moveStack.push({ chip: chip, slotId: slot.id });
   }
 
   function releaseChip(chip) {
@@ -348,6 +354,7 @@
     chips.forEach(function (chip) {
       if (chip.slotId) returnChipHome(chip);
     });
+    moveStack = [];
   }
 
   function getSlotValues() {
@@ -409,6 +416,11 @@
     setUiMode(currentMode);
 
     if (hintEl) hintEl.textContent = theme.hint;
+    if (subhintEl) {
+      subhintEl.textContent = isBalanceMode()
+        ? 'Drag numbers onto each side of the scale.'
+        : 'Drag bubbles into the dashed boxes.';
+    }
 
     if (currentMode === 'balance') {
       if (!keepTarget) {
@@ -460,6 +472,34 @@
     return null;
   }
 
+  function undoLastMove() {
+    while (moveStack.length) {
+      var last = moveStack.pop();
+      if (!last || !last.chip) continue;
+      var slotFound = null;
+      var i;
+      for (i = 0; i < slots.length; i++) {
+        if (slots[i].id === last.slotId) {
+          slotFound = slots[i];
+          break;
+        }
+      }
+      if (slotFound && slotFound.chip === last.chip) {
+        returnChipHome(last.chip);
+        setFeedback('');
+        updateMovesFeedback();
+        return;
+      }
+    }
+  }
+
+  function clearBoardMoves() {
+    clearAllSlots();
+    moveCount = 0;
+    setFeedback('');
+    updateMovesFeedback();
+  }
+
   function chipMatchesSlot(chip, slot) {
     if (isBalanceMode()) {
       return chip.kind === 'num' && (slot.role === 'pan-l' || slot.role === 'pan-r');
@@ -494,6 +534,29 @@
     top = Math.max(0, Math.min(top, stageRect.height - chipH));
     chip.el.style.left = (left / stageRect.width) * 100 + '%';
     chip.el.style.top = (top / stageRect.height) * 100 + '%';
+  }
+
+  function cancelDragRaf() {
+    if (dragRafId !== null) {
+      cancelAnimationFrame(dragRafId);
+      dragRafId = null;
+    }
+  }
+
+  function flushDragVisual() {
+    dragRafId = null;
+    if (!dragState || dragState.pending) return;
+    var chip = dragState.chip;
+    var cx = dragState.pointerClientX;
+    var cy = dragState.pointerClientY;
+    if (cx == null || cy == null) return;
+    setChipStagePosition(chip, cx, cy, dragState.offsetX, dragState.offsetY);
+    setDropTarget(getNearestSlot(chip));
+  }
+
+  function scheduleDragVisual() {
+    if (dragRafId !== null) return;
+    dragRafId = requestAnimationFrame(flushDragVisual);
   }
 
   function rectIntersectionArea(a, b) {
@@ -541,10 +604,9 @@
     }
     chip.el.classList.add('is-dragging');
     stage.classList.add('is-dragging');
-  }
-
-  function cancelPendingDrag() {
-    dragState = null;
+    dragState.pointerClientX = e.clientX;
+    dragState.pointerClientY = e.clientY;
+    scheduleDragVisual();
   }
 
   function onPointerDown(e) {
@@ -553,7 +615,12 @@
     if (!chip) return;
     if (isBalanceMode() && chip.kind !== 'num') return;
 
-    if (chip.slotId) releaseChip(chip);
+    if (chip.slotId) {
+      if (moveStack.length && moveStack[moveStack.length - 1].chip === chip) {
+        moveStack.pop();
+      }
+      releaseChip(chip);
+    }
 
     var rect = e.currentTarget.getBoundingClientRect();
     dragState = {
@@ -563,6 +630,8 @@
       offsetY: e.clientY - rect.top,
       startX: e.clientX,
       startY: e.clientY,
+      pointerClientX: e.clientX,
+      pointerClientY: e.clientY,
       pending: true,
       moved: false
     };
@@ -574,15 +643,8 @@
     if (dragState.pending) {
       var dx = e.clientX - dragState.startX;
       var dy = e.clientY - dragState.startY;
-      var adx = Math.abs(dx);
-      var ady = Math.abs(dy);
 
-      if (ady > adx && ady > SCROLL_CANCEL_PX) {
-        cancelPendingDrag();
-        return;
-      }
-
-      if (Math.hypot(dx, dy) < DRAG_ACTIVATE_PX || adx < ady) {
+      if (Math.hypot(dx, dy) < DRAG_ACTIVATE_PX) {
         return;
       }
 
@@ -593,10 +655,10 @@
 
     e.preventDefault();
 
-    var chip = dragState.chip;
-    setChipStagePosition(chip, e.clientX, e.clientY, dragState.offsetX, dragState.offsetY);
+    dragState.pointerClientX = e.clientX;
+    dragState.pointerClientY = e.clientY;
     dragState.moved = true;
-    setDropTarget(getNearestSlot(chip));
+    scheduleDragVisual();
   }
 
   function dist(a, b) {
@@ -733,12 +795,18 @@
   function onPointerUp(e) {
     if (!dragState || dragState.pointerId !== e.pointerId) return;
 
+    cancelDragRaf();
+
     if (dragState.pending) {
       dragState = null;
       return;
     }
 
     var chip = dragState.chip;
+    var cx = dragState.pointerClientX != null ? dragState.pointerClientX : e.clientX;
+    var cy = dragState.pointerClientY != null ? dragState.pointerClientY : e.clientY;
+    setChipStagePosition(chip, cx, cy, dragState.offsetX, dragState.offsetY);
+
     chip.el.classList.remove('is-dragging');
     stage.classList.remove('is-dragging');
     clearDropTarget();
@@ -767,6 +835,7 @@
   stage.addEventListener('pointercancel', onPointerUp);
 
   function cancelActiveDrag() {
+    cancelDragRaf();
     if (!dragState) return;
     var chip = dragState.chip;
     if (chip && chip.el) {
@@ -782,6 +851,24 @@
     clearDropTarget();
     stage.classList.remove('is-dragging');
     dragState = null;
+  }
+
+  if (undoBtn) {
+    undoBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelActiveDrag();
+      undoLastMove();
+    });
+  }
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelActiveDrag();
+      clearBoardMoves();
+    });
   }
 
   document.addEventListener('hero-theme-change', function (e) {
