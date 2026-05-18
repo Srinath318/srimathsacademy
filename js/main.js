@@ -28,6 +28,7 @@
   var heroGamePicker = document.querySelector('[data-hero-game-picker]');
   var heroBadgeOneonone = document.querySelector('.hero__badge[data-hero-theme="oneonone"]');
   var heroGameNudgeTimer = null;
+  var isClosingModal = false;
 
   var HERO_TEASER = {
     results: {
@@ -61,8 +62,16 @@
 
   function closeModal() {
     if (!modal) return;
+    isClosingModal = true;
+    if (document.activeElement && modal.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
     modal.hidden = true;
     document.body.style.overflow = '';
+    clearValidationErrors();
+    setTimeout(function () {
+      isClosingModal = false;
+    }, 0);
   }
 
   function closeNav() {
@@ -75,7 +84,14 @@
   });
 
   document.querySelectorAll('[data-close-modal]').forEach(function (el) {
-    el.addEventListener('click', closeModal);
+    el.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      closeModal();
+    });
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      closeModal();
+    });
   });
 
   var heroGameMq = window.matchMedia('(max-width: 899px)');
@@ -237,7 +253,7 @@
   if (studentClass) {
     studentClass.addEventListener('change', function () {
       toggleOtherClass();
-      validateForm();
+      updateSubmitState();
     });
   }
 
@@ -257,6 +273,25 @@
   function clearError(field, errorEl) {
     if (field) field.classList.remove('is-invalid');
     if (errorEl) errorEl.textContent = '';
+  }
+
+  function clearValidationErrors() {
+    clearError(studentName, document.getElementById('nameError'));
+    clearError(phone, document.getElementById('phoneError'));
+    clearError(studentClass, document.getElementById('classError'));
+    clearError(otherClass, document.getElementById('otherClassError'));
+  }
+
+  function isFormComplete() {
+    var nameVal = studentName ? studentName.value.trim() : '';
+    var phoneDigits = phone ? phone.value.replace(/\D/g, '') : '';
+    var hasClass = !!(studentClass && studentClass.value);
+    var hasOther = studentClass && studentClass.value === 'other' ? !!(otherClass && otherClass.value.trim()) : true;
+    return nameVal.length >= 2 && phoneDigits.length >= 7 && phoneDigits.length <= 15 && hasClass && hasOther;
+  }
+
+  function updateSubmitState() {
+    if (whatsappBtn) whatsappBtn.disabled = !isFormComplete();
   }
 
   function validateName() {
@@ -304,19 +339,34 @@
 
   function validateForm() {
     var valid = validateName() & validatePhone() & validateClass();
-    if (whatsappBtn) whatsappBtn.disabled = !valid;
+    updateSubmitState();
     return !!valid;
   }
 
   if (studentName) {
-    studentName.addEventListener('input', validateForm);
-    studentName.addEventListener('blur', validateName);
+    studentName.addEventListener('input', updateSubmitState);
+    studentName.addEventListener('blur', function () {
+      if (isClosingModal) return;
+      validateName();
+      updateSubmitState();
+    });
   }
   if (phone) {
-    phone.addEventListener('input', validateForm);
-    phone.addEventListener('blur', validatePhone);
+    phone.addEventListener('input', updateSubmitState);
+    phone.addEventListener('blur', function () {
+      if (isClosingModal) return;
+      validatePhone();
+      updateSubmitState();
+    });
   }
-  if (otherClass) otherClass.addEventListener('input', validateForm);
+  if (otherClass) {
+    otherClass.addEventListener('input', updateSubmitState);
+    otherClass.addEventListener('blur', function () {
+      if (isClosingModal) return;
+      validateClass();
+      updateSubmitState();
+    });
+  }
 
   if (form) {
     form.addEventListener('submit', function (e) {
@@ -356,7 +406,7 @@
   }
 
   toggleOtherClass();
-  validateForm();
+  updateSubmitState();
   if (heroBadges.length) {
     setHeroTheme('results');
     scheduleHeroGameNudge();
