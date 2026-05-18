@@ -3378,6 +3378,19 @@ main > section.cta-band > .container.cta-band__inner {
   font-size: 0.9375rem;
 }
 
+@media (max-width: 899px) {
+  #why-one-on-one .compare__grid {
+    width: 100%;
+  }
+
+  #why-one-on-one .compare__col {
+    width: min(78vw, 22rem);
+    max-width: calc(100vw - 2.5rem);
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+}
+
 /* Tutor */
 .tutor__name {
   color: var(--primary);
