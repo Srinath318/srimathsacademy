@@ -1,7 +1,6 @@
 (function () {
   'use strict';
 
-  var SNAP_PX = 34;
   var DRAG_ACTIVATE_PX = 8;
   var SCROLL_CANCEL_PX = 10;
   var SUCCESS_MS = 2200;
@@ -83,6 +82,7 @@
   var moveCount = 0;
   var toastIndex = 0;
   var lastTarget = null;
+  var dropTargetSlot = null;
 
   function getTheme(name) {
     return THEMES[name] || THEMES.results;
@@ -169,6 +169,7 @@
     poolEl.innerHTML = '';
     chips = [];
     slots = [];
+    clearDropTarget();
     moveCount = 0;
     setFeedback('');
     clearPanDisplay();
@@ -310,6 +311,7 @@
     slot.el.textContent = chip.el.textContent;
     slot.el.classList.add('is-filled');
     chip.el.classList.add('is-snapped');
+    reparentChipToPool(chip);
     chip.el.style.visibility = 'hidden';
     chip.el.setAttribute('aria-hidden', 'true');
   }
@@ -337,6 +339,7 @@
 
   function returnChipHome(chip) {
     releaseChip(chip);
+    reparentChipToPool(chip);
     chip.el.style.left = chip.homeLeft + '%';
     chip.el.style.top = chip.homeTop + '%';
   }
@@ -464,14 +467,79 @@
     return slot.role === chip.kind;
   }
 
+  function reparentChipToPool(chip) {
+    if (chip.el.parentElement !== poolEl) {
+      poolEl.appendChild(chip.el);
+    }
+  }
+
+  function reparentChipToStage(chip) {
+    if (chip.el.parentElement === stage) return;
+    var stageRect = stage.getBoundingClientRect();
+    var chipRect = chip.el.getBoundingClientRect();
+    stage.appendChild(chip.el);
+    var left = chipRect.left - stageRect.left;
+    var top = chipRect.top - stageRect.top;
+    chip.el.style.left = (left / stageRect.width) * 100 + '%';
+    chip.el.style.top = (top / stageRect.height) * 100 + '%';
+  }
+
+  function setChipStagePosition(chip, clientX, clientY, offsetX, offsetY) {
+    var stageRect = stage.getBoundingClientRect();
+    var chipW = chip.el.offsetWidth;
+    var chipH = chip.el.offsetHeight;
+    var left = clientX - stageRect.left - offsetX;
+    var top = clientY - stageRect.top - offsetY;
+    left = Math.max(0, Math.min(left, stageRect.width - chipW));
+    top = Math.max(0, Math.min(top, stageRect.height - chipH));
+    chip.el.style.left = (left / stageRect.width) * 100 + '%';
+    chip.el.style.top = (top / stageRect.height) * 100 + '%';
+  }
+
+  function rectIntersectionArea(a, b) {
+    var left = Math.max(a.left, b.left);
+    var right = Math.min(a.right, b.right);
+    var top = Math.max(a.top, b.top);
+    var bottom = Math.min(a.bottom, b.bottom);
+    if (right <= left || bottom <= top) return 0;
+    return (right - left) * (bottom - top);
+  }
+
+  function pointInRect(x, y, rect) {
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function getSnapRadius(slotRect) {
+    return Math.max(44, Math.min(slotRect.width, slotRect.height) * 0.85);
+  }
+
+  function clearDropTarget() {
+    slots.forEach(function (slot) {
+      slot.el.classList.remove('is-drop-target');
+    });
+    dropTargetSlot = null;
+  }
+
+  function setDropTarget(slot) {
+    if (dropTargetSlot === slot) return;
+    clearDropTarget();
+    dropTargetSlot = slot;
+    if (slot) slot.el.classList.add('is-drop-target');
+  }
+
   function activateDrag(state, e) {
     state.pending = false;
+    var chip = state.chip;
+    var chipRect = chip.el.getBoundingClientRect();
+    reparentChipToStage(chip);
+    state.offsetX = e.clientX - chipRect.left;
+    state.offsetY = e.clientY - chipRect.top;
     try {
-      state.chip.el.setPointerCapture(e.pointerId);
+      chip.el.setPointerCapture(e.pointerId);
     } catch (err) {
       /* ignore */
     }
-    state.chip.el.classList.add('is-dragging');
+    chip.el.classList.add('is-dragging');
     stage.classList.add('is-dragging');
   }
 
@@ -526,19 +594,9 @@
     e.preventDefault();
 
     var chip = dragState.chip;
-    var stageRect = stage.getBoundingClientRect();
-    var chipW = chip.el.offsetWidth;
-    var chipH = chip.el.offsetHeight;
-
-    var left = e.clientX - stageRect.left - dragState.offsetX;
-    var top = e.clientY - stageRect.top - dragState.offsetY;
-
-    left = Math.max(0, Math.min(left, stageRect.width - chipW));
-    top = Math.max(0, Math.min(top, stageRect.height - chipH));
-
-    chip.el.style.left = (left / stageRect.width) * 100 + '%';
-    chip.el.style.top = (top / stageRect.height) * 100 + '%';
+    setChipStagePosition(chip, e.clientX, e.clientY, dragState.offsetX, dragState.offsetY);
     dragState.moved = true;
+    setDropTarget(getNearestSlot(chip));
   }
 
   function dist(a, b) {
@@ -547,29 +605,38 @@
 
   function getNearestSlot(chip) {
     var chipRect = chip.el.getBoundingClientRect();
+    var chipArea = chipRect.width * chipRect.height;
     var chipCenter = {
       x: chipRect.left + chipRect.width / 2,
       y: chipRect.top + chipRect.height / 2
     };
 
     var best = null;
-    var bestDist = SNAP_PX + 1;
+    var bestScore = -1;
 
     slots.forEach(function (slot) {
       if (slot.chip || !chipMatchesSlot(chip, slot)) return;
       var slotRect = slot.el.getBoundingClientRect();
+      var overlap = rectIntersectionArea(chipRect, slotRect);
+      var overlapRatio = chipArea > 0 ? overlap / chipArea : 0;
+      var centerInside = pointInRect(chipCenter.x, chipCenter.y, slotRect);
       var center = {
         x: slotRect.left + slotRect.width / 2,
         y: slotRect.top + slotRect.height / 2
       };
       var d = dist(chipCenter, center);
-      if (d < bestDist) {
-        bestDist = d;
+      var snapRadius = getSnapRadius(slotRect);
+      var qualifies = overlapRatio >= 0.2 || centerInside || d <= snapRadius;
+
+      if (!qualifies) return;
+
+      var score = overlapRatio * 1000 + (centerInside ? 500 : 0) + Math.max(0, snapRadius - d);
+      if (score > bestScore) {
+        bestScore = score;
         best = slot;
       }
     });
 
-    if (!best || bestDist > SNAP_PX) return null;
     return best;
   }
 
@@ -674,6 +741,7 @@
     var chip = dragState.chip;
     chip.el.classList.remove('is-dragging');
     stage.classList.remove('is-dragging');
+    clearDropTarget();
 
     try {
       chip.el.releasePointerCapture(e.pointerId);
@@ -698,6 +766,24 @@
   stage.addEventListener('pointerup', onPointerUp);
   stage.addEventListener('pointercancel', onPointerUp);
 
+  function cancelActiveDrag() {
+    if (!dragState) return;
+    var chip = dragState.chip;
+    if (chip && chip.el) {
+      chip.el.classList.remove('is-dragging');
+      if (!dragState.pending && dragState.moved && !chip.slotId) {
+        returnChipHome(chip);
+      } else if (!chip.slotId && chip.el.parentElement === stage) {
+        reparentChipToPool(chip);
+        chip.el.style.left = chip.homeLeft + '%';
+        chip.el.style.top = chip.homeTop + '%';
+      }
+    }
+    clearDropTarget();
+    stage.classList.remove('is-dragging');
+    dragState = null;
+  }
+
   document.addEventListener('hero-theme-change', function (e) {
     var theme = e.detail && e.detail.theme;
     if (theme) {
@@ -705,6 +791,8 @@
       loadTheme(theme, false);
     }
   });
+
+  document.addEventListener('hero-game-close', cancelActiveDrag);
 
   loadTheme('results', false);
 })();

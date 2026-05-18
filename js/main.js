@@ -20,6 +20,31 @@
   var whatsappBtn = document.getElementById('whatsappBtn');
 
   var heroBadges = document.querySelectorAll('.hero__badge[data-hero-theme]');
+  var heroTeaser = document.querySelector('.hero-game-teaser');
+  var heroTeaserTitle = document.querySelector('[data-hero-teaser-title]');
+  var heroTeaserWatermark = document.querySelector('[data-hero-teaser-watermark]');
+  var heroTeaserVisuals = document.querySelectorAll('[data-hero-teaser-visual]');
+  var heroPlayRoot = document.querySelector('[data-hero-play]');
+  var heroGamePicker = document.querySelector('[data-hero-game-picker]');
+  var heroBadgeOneonone = document.querySelector('.hero__badge[data-hero-theme="oneonone"]');
+  var heroGameNudgeTimer = null;
+
+  var HERO_TEASER = {
+    results: {
+      title: 'Make the number',
+      ariaLabel: 'Play Make the Number game',
+      playAriaLabel: 'Make the number maths game',
+      modifier: 'hero-game-teaser--results',
+      watermark: '+ × ='
+    },
+    oneonone: {
+      title: 'Balance the scales',
+      ariaLabel: 'Play Balance the Scales game',
+      playAriaLabel: 'Balance the scales maths game',
+      modifier: 'hero-game-teaser--oneonone',
+      watermark: '= ='
+    }
+  };
 
   if (yearEl) {
     yearEl.textContent = new Date().getFullYear();
@@ -53,8 +78,52 @@
     el.addEventListener('click', closeModal);
   });
 
+  var heroGameMq = window.matchMedia('(max-width: 899px)');
+  var heroGameOpen = document.querySelector('[data-hero-game-open]');
+  var heroGameSheet = document.querySelector('[data-hero-game-sheet]');
+  var heroGameClose = document.querySelector('[data-hero-game-close]');
+
+  function isHeroGameMobile() {
+    return heroGameMq.matches;
+  }
+
+  function openHeroGame() {
+    if (!heroGameSheet || !isHeroGameMobile()) return;
+    heroGameSheet.classList.add('is-open');
+    heroGameSheet.setAttribute('aria-hidden', 'false');
+    if (heroGameOpen) heroGameOpen.setAttribute('aria-expanded', 'true');
+    document.body.classList.add('hero-game-active');
+    if (heroGameClose) heroGameClose.focus();
+    document.dispatchEvent(new CustomEvent('hero-game-open'));
+  }
+
+  function closeHeroGame() {
+    if (!heroGameSheet) return;
+    heroGameSheet.classList.remove('is-open');
+    heroGameSheet.setAttribute('aria-hidden', 'true');
+    if (heroGameOpen) {
+      heroGameOpen.setAttribute('aria-expanded', 'false');
+      if (isHeroGameMobile()) heroGameOpen.focus();
+    }
+    document.body.classList.remove('hero-game-active');
+    document.dispatchEvent(new CustomEvent('hero-game-close'));
+  }
+
+  if (heroGameOpen && heroGameSheet) {
+    heroGameOpen.addEventListener('click', openHeroGame);
+    if (heroGameClose) heroGameClose.addEventListener('click', closeHeroGame);
+    heroGameMq.addEventListener('change', function () {
+      if (!isHeroGameMobile()) closeHeroGame();
+    });
+  }
+
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal && !modal.hidden) closeModal();
+    if (e.key !== 'Escape') return;
+    if (heroGameSheet && heroGameSheet.classList.contains('is-open')) {
+      closeHeroGame();
+      return;
+    }
+    if (modal && !modal.hidden) closeModal();
   });
 
   if (navToggle && navMenu) {
@@ -80,21 +149,82 @@
   }
 
   /* Hero theme toggle */
+  function updateHeroTeaser(theme) {
+    var config = HERO_TEASER[theme] || HERO_TEASER.results;
+    if (heroTeaserTitle) heroTeaserTitle.textContent = config.title;
+    if (heroTeaserWatermark) heroTeaserWatermark.textContent = config.watermark;
+    if (heroGameOpen) heroGameOpen.setAttribute('aria-label', config.ariaLabel);
+    if (heroPlayRoot) heroPlayRoot.setAttribute('aria-label', config.playAriaLabel);
+    if (heroTeaser) {
+      heroTeaser.classList.remove('hero-game-teaser--results', 'hero-game-teaser--oneonone');
+      heroTeaser.classList.add(config.modifier);
+    }
+    heroTeaserVisuals.forEach(function (visual) {
+      var match = visual.getAttribute('data-hero-teaser-visual') === theme;
+      visual.hidden = !match;
+    });
+  }
+
+  function clearHeroGameNudge() {
+    if (heroGameNudgeTimer) {
+      clearTimeout(heroGameNudgeTimer);
+      heroGameNudgeTimer = null;
+    }
+    if (heroBadgeOneonone) heroBadgeOneonone.classList.remove('hero__badge--nudge');
+  }
+
+  function scheduleHeroGameNudge() {
+    if (!heroGamePicker || !heroBadgeOneonone || !isHeroGameMobile()) return;
+    if (sessionStorage.getItem('heroGameNudgeSeen') === '1') return;
+    if (heroGameNudgeTimer) clearTimeout(heroGameNudgeTimer);
+    heroGameNudgeTimer = setTimeout(function () {
+      heroGameNudgeTimer = null;
+      if (
+        heroBadgeOneonone &&
+        !heroBadgeOneonone.classList.contains('is-active') &&
+        isHeroGameMobile()
+      ) {
+        heroBadgeOneonone.classList.add('hero__badge--nudge');
+      }
+    }, 3500);
+  }
+
+  function dismissHeroGameNudge() {
+    clearHeroGameNudge();
+    try {
+      sessionStorage.setItem('heroGameNudgeSeen', '1');
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
   function setHeroTheme(theme) {
+    var activeTheme = HERO_TEASER[theme] ? theme : 'results';
     heroBadges.forEach(function (badge) {
-      var active = badge.getAttribute('data-hero-theme') === theme;
+      var active = badge.getAttribute('data-hero-theme') === activeTheme;
       badge.classList.toggle('is-active', active);
       badge.setAttribute('aria-selected', active ? 'true' : 'false');
     });
+    updateHeroTeaser(activeTheme);
+    if (activeTheme === 'oneonone') clearHeroGameNudge();
     document.dispatchEvent(
-      new CustomEvent('hero-theme-change', { detail: { theme: theme } })
+      new CustomEvent('hero-theme-change', { detail: { theme: activeTheme } })
     );
   }
 
   heroBadges.forEach(function (badge) {
     badge.addEventListener('click', function () {
+      dismissHeroGameNudge();
       setHeroTheme(badge.getAttribute('data-hero-theme'));
     });
+  });
+
+  heroGameMq.addEventListener('change', function () {
+    if (isHeroGameMobile()) {
+      scheduleHeroGameNudge();
+    } else {
+      clearHeroGameNudge();
+    }
   });
 
   /* Form validation */
@@ -225,42 +355,12 @@
     setInterval(rotateWord, 3000);
   }
 
-  /* Scroll reveal — lightweight, minimal perf impact */
-  var revealEls = document.querySelectorAll('.reveal');
-  if (revealEls.length && 'IntersectionObserver' in window) {
-    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduceMotion) {
-      revealEls.forEach(function (el) {
-        el.classList.add('is-visible');
-      });
-    } else {
-      var observer = new IntersectionObserver(
-        function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('is-visible');
-              observer.unobserve(entry.target);
-            }
-          });
-        },
-        { root: null, rootMargin: '0px 0px -8% 0px', threshold: 0.12 }
-      );
-      revealEls.forEach(function (el) {
-        observer.observe(el);
-      });
-    }
-  } else {
-    revealEls.forEach(function (el) {
-      el.classList.add('is-visible');
-    });
-  }
-
-  var heroReveal = document.getElementById('hero');
-  if (heroReveal) heroReveal.classList.add('is-visible');
-
   toggleOtherClass();
   validateForm();
-  if (heroBadges.length) setHeroTheme('results');
+  if (heroBadges.length) {
+    setHeroTheme('results');
+    scheduleHeroGameNudge();
+  }
 
   function closeFaqItem(item) {
     if (!item) return;

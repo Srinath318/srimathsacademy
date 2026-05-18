@@ -149,7 +149,7 @@
   </header>
 
   <main>
-    <section class="hero section--alt reveal" id="hero">
+    <section class="hero section--alt" id="hero">
       <div class="container hero__grid">
         <div class="hero__content">
           <button type="button" class="btn-eyebrow" data-open-modal>
@@ -184,7 +184,28 @@
         </div>
         <div class="hero__visual">
           <div class="hero__image-wrap" id="heroImageWrap">
-            <div class="hero-play hero-play--results" data-hero-play aria-label="Make the number maths game">
+            <button type="button" class="hero-game-teaser hero-game-teaser--results" data-hero-game-open aria-expanded="false" aria-label="Play Make the Number game">
+              <span class="hero-game-teaser__frame" aria-hidden="true"></span>
+              <span class="hero-game-teaser__watermark" data-hero-teaser-watermark aria-hidden="true">+ × =</span>
+              <span class="hero-game-teaser__kicker">Quick challenge</span>
+              <span class="hero-game-teaser__title" data-hero-teaser-title>Make the number</span>
+              <span class="hero-game-teaser__visual hero-game-teaser__visual--results" data-hero-teaser-visual="results" aria-hidden="true">
+                <span class="hero-game-teaser__eq">? + ? =</span>
+                <span class="hero-game-teaser__target">24</span>
+              </span>
+              <span class="hero-game-teaser__visual hero-game-teaser__visual--balance" data-hero-teaser-visual="oneonone" hidden aria-hidden="true">
+                <span class="hero-game-teaser__pan">?</span>
+                <span class="hero-game-teaser__scale" aria-hidden="true">&#9878;</span>
+                <span class="hero-game-teaser__pan">?</span>
+              </span>
+              <span class="hero-game-teaser__cta">
+                <span class="hero-game-teaser__cta-icon" aria-hidden="true"></span>
+                Play now
+              </span>
+            </button>
+            <div class="hero-game-sheet" data-hero-game-sheet aria-hidden="true">
+              <button type="button" class="hero-game-sheet__close" data-hero-game-close aria-label="Close game">&times;</button>
+              <div class="hero-play hero-play--results" data-hero-play aria-label="Make the number maths game">
               <p class="hero-play__hint" data-hero-play-hint>Pop the target score!</p>
               <p class="hero-play__feedback" data-hero-play-feedback hidden></p>
               <p class="hero-play__static" data-hero-play-static hidden></p>
@@ -207,17 +228,33 @@
                 </div>
               </div>
               <p class="hero-play__toast" data-hero-play-toast hidden>Target smashed!</p>
+              </div>
             </div>
           </div>
-          <div class="hero__badges" role="tablist" aria-label="Highlight topics">
-            <button type="button" class="hero__badge is-active" role="tab" aria-selected="true" data-hero-theme="results">95% students show improvement</button>
-            <button type="button" class="hero__badge" role="tab" aria-selected="false" data-hero-theme="oneonone">1:1 Tutoring</button>
+          <div class="hero__game-picker" data-hero-game-picker>
+            <p class="hero__game-picker-label">2 quick games — tap to switch</p>
+            <div class="hero__badges hero__badges--games" role="tablist" aria-label="Choose maths mini game">
+              <button type="button" class="hero__badge hero__badge--game is-active" role="tab" aria-selected="true" data-hero-theme="results">
+                <span class="hero__badge-icon hero__badge-icon--number" aria-hidden="true">?</span>
+                <span class="hero__badge-copy">
+                  <span class="hero__badge-game" data-hero-badge-game="results">Make the number</span>
+                  <span class="hero__badge-tag">95% students show improvement</span>
+                </span>
+              </button>
+              <button type="button" class="hero__badge hero__badge--game" role="tab" aria-selected="false" data-hero-theme="oneonone">
+                <span class="hero__badge-icon hero__badge-icon--balance" aria-hidden="true">&#9878;</span>
+                <span class="hero__badge-copy">
+                  <span class="hero__badge-game" data-hero-badge-game="oneonone">Balance the scales</span>
+                  <span class="hero__badge-tag">1:1 Tutoring</span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section syllabus section--white reveal" id="syllabus">
+    <section class="section syllabus section--white" id="syllabus">
       <div class="container">
         <header class="section__header">
           <h2 class="section__title">From Basics to Mastery</h2>
@@ -251,7 +288,7 @@
       </div>
     </section>
 
-    <section class="section experience section--tint reveal" id="experience">
+    <section class="section experience section--tint" id="experience">
       <div class="container">
         <header class="section__header section__header--center">
           <h2 class="section__title">Decades of Maths Excellence</h2>
@@ -282,7 +319,7 @@
       </div>
     </section>
 
-    <section class="section cta-band reveal">
+    <section class="section cta-band">
       <div class="container cta-band__inner">
         <div class="cta-band__text">
           <h2 class="cta-band__title">Ready to see the difference?</h2>
@@ -298,7 +335,7 @@
       </div>
     </section>
 
-    <section class="section compare section--white reveal" id="why-one-on-one">
+    <section class="section compare section--white" id="why-one-on-one">
       <div class="container">
         <header class="section__header section__header--center">
           <p class="section__eyebrow">Why 1-on-1 Tuition Wins</p>
@@ -333,7 +370,7 @@
       </div>
     </section>
 
-    <section class="section tutor section--tint reveal" id="tutor">
+    <section class="section tutor section--tint" id="tutor">
       <div class="container">
         <header class="section__header section__header--center">
           <p class="section__eyebrow">Meet Your Tutor</p>
@@ -367,7 +404,7 @@
       </div>
     </section>
 
-    <section class="section results section--white reveal" id="results">
+    <section class="section results section--white" id="results">
       <div class="container">
         <header class="section__header section__header--center">
           <h2 class="section__title">Real Outcomes, Real Numbers</h2>
@@ -397,7 +434,7 @@
       </div>
     </section>
 
-    <section class="section contact reveal" id="contact">
+    <section class="section contact" id="contact">
       <div class="container contact__inner">
         <p class="contact__eyebrow">We're here for you</p>
         <h2 class="contact__title">Still Have Questions?</h2>
@@ -423,7 +460,7 @@
       </div>
     </section>
 
-    <section class="section faq reveal" id="faq">
+    <section class="section faq" id="faq">
       <div class="container">
         <header class="section__header section__header--center">
           <p class="section__eyebrow">FAQ</p>
